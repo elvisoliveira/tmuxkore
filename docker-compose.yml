@@ -1,0 +1,14 @@
+version: '2'
+services:
+    kore:
+        container_name: kore-container
+        build:
+            context: .
+            dockerfile: ./Dockerfile
+        env_file:
+            - .env
+        volumes:
+            - ./profiles:/openkore/profiles
+        ports:
+            - "6901-6999:6901-6999"
+        tty: true
