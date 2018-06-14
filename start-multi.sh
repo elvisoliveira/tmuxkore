@@ -1,26 +1,37 @@
 #!/bin/bash
-# @TODO: Profiles folder must be on previous folder.
-declare -a functions=($(ls ../profiles))
-echo "Select function:"
-for ((i = 0; i < ${#functions[@]}; ++i)); do
-	echo "[$i] ${functions[i]}"
-done
-read -p "Which one? " function
-while [[ -z "$function" ]]; do
-	exit
-done
-# TMUX
-tmux start-server
-tmux attach -d -s $function || tmux new -d -s $function
-# Account
-declare -a accounts=($(ls ../profiles/${functions[function]}/ | grep .txt))
+# Bootstrap.
+session="kore"
+
+# Select profile.
+declare -a profiles=($(ls ../profiles))
+echo "Select profile:"
+for ((i = 0; i < ${#profiles[@]}; ++i)); do echo "[$i] ${profiles[i]}"; done
+read -p "Which one? " profile
+while [[ -z "$profile" ]]; do exit; done
+
+# Setup Tmux: Session.
+if [[ $(tmux ls -F "#{session_name}") != $session ]]; then
+	tmux new-session -d -n ${profiles[profile]} -s $session
+fi
+
+# Setup Tmux: Window.
+if [[ $(tmux display-message -p '#W') != ${profiles[profile]} ]]; then
+	tmux new-window -t $session -n ${profiles[profile]}
+fi
+
+# Start app.
+declare -a accounts=($(ls ../profiles/${profiles[profile]}/ | grep .txt))
 for ((i = 0; i < ${#accounts[@]}; ++i)); do
-	tmux splitw -t $function -l 1
-	tmux send -t $function:0.1 "perl ./openkore.pl --config=\"../profiles/${functions[function]}/${accounts[i]}\" \
-								                   --control=\"../profiles/${functions[function]}/control\" \
-								                   --plugins=\"../plugins\" \
-								                   --logs=\"../logs\"" C-m
-	tmux selectp -t $function:0.0
-	tmux selectl -t $function tiled
+	if [[ ${i} < $(expr ${#accounts[@]} - 1) ]]; then
+		tmux splitw -t $session
+	fi
+	tmux send -t $session:$(tmux display -pt ${profiles[profile]} '#{window_index}').${i} "perl ./openkore.pl \
+		--config=\"../profiles/${profiles[profile]}/${accounts[i]}\" \
+		--control=\"../profiles/${profiles[profile]}/control\" \
+		--plugins=\"../plugins\" \
+		--logs=\"../logs\"" C-m
+	# tmux selectp -t $session:0.0
+	tmux selectl -t $session tiled
 done
-tmux a -t $function
+
+tmux a -t $session
